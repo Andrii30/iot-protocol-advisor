@@ -164,9 +164,11 @@ class Engine:
         class_counts = np.bincount(y, minlength=len(PROTOCOLS))
         low_confidence_eval = bool(len(y) < 200 or class_counts.min() < 10)
 
-        # Stratify only when every present class has >= 2 rows.
+        labels = list(range(len(PROTOCOLS)))
+        # Stratify when every present class has >= 2 rows and the test split can
+        # still hold one row per class; otherwise fall back to a plain split.
         present = class_counts[class_counts > 0]
-        stratify = y if present.min() >= 2 else None
+        stratify = y if (present.min() >= 2 and len(y) * 0.25 >= len(present)) else None
         tr_idx, te_idx = train_test_split(
             np.arange(len(y)), test_size=0.25, random_state=42, stratify=stratify
         )
@@ -179,9 +181,11 @@ class Engine:
         for name, model in _model_zoo().items():
             model.fit(Xtr, y[tr_idx])
             pred = model.predict(Xte)
-            macro = f1_score(y[te_idx], pred, average="macro")
+            macro = f1_score(y[te_idx], pred, average="macro", labels=labels, zero_division=0)
             if macro > best_f1:
-                per_class = f1_score(y[te_idx], pred, average=None, labels=range(len(PROTOCOLS)))
+                per_class = f1_score(
+                    y[te_idx], pred, average=None, labels=labels, zero_division=0
+                )
                 best_name, best_f1 = name, macro
                 best_metrics = {
                     "accuracy": float(accuracy_score(y[te_idx], pred)),

@@ -75,6 +75,18 @@ def test_tiny_dataset_sets_low_confidence_flag(tmp_path, training_dir):
     assert info.low_confidence_eval is True
 
 
+def test_very_small_training_set_does_not_raise(tmp_path, training_dir):
+    """4 classes x 3 rows: too few to stratify a 25% split -> plain split, no crash."""
+    tiny = tmp_path / "vtiny"
+    tiny.mkdir()
+    files = sorted(training_dir.glob("*.csv"))
+    pd.read_csv(files[0]).groupby("best_protocol", group_keys=False).head(3).to_csv(
+        tiny / "only.csv", index=False
+    )
+    info = Engine(home=tmp_path / "home").retrain(str(tiny / "*.csv"))
+    assert info.model_name
+
+
 def test_predict_before_load_raises(tmp_path):
     eng = Engine(home=tmp_path / "home")
     with pytest.raises(RuntimeError):

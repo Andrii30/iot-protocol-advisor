@@ -130,17 +130,23 @@ class AdvisorApp:
 
     def _poll_queue(self) -> None:
         try:
-            on_success, result, error = self._queue.get_nowait()
-        except queue.Empty:
-            pass
-        else:
+            try:
+                on_success, result, error = self._queue.get_nowait()
+            except queue.Empty:
+                return
             self._set_busy(False)
             if error is not None:
                 self.refresh_status()
                 messagebox.showerror("IoT Protocol Advisor", str(error))
             else:
-                on_success(result)
-        self.root.after(100, self._poll_queue)
+                try:
+                    on_success(result)
+                except Exception as exc:  # noqa: BLE001 - keep the poller alive
+                    self.refresh_status()
+                    messagebox.showerror("IoT Protocol Advisor", str(exc))
+        finally:
+            # Always re-arm, even if a callback raised.
+            self.root.after(100, self._poll_queue)
 
     # -- actions --------------------------------------------------------
 
@@ -159,6 +165,7 @@ class AdvisorApp:
 
         def done(result):
             self._devices_df, self._result_df = result
+            self._sort_asc.clear()
             self._populate(self._result_df)
             self.btn_export.config(state="normal")
             self.status.set(
@@ -174,15 +181,22 @@ class AdvisorApp:
             return
         glob = str(Path(folder) / "*.csv")
 
-        def done(_info):
+        def rescore(_info):
             self.refresh_status()
-            # Re-score the loaded file against the new model, if any.
+            # Re-score the loaded file against the new model, off the UI thread.
             if self._devices_df is not None:
-                self._result_df = advise(self._devices_df, self.engine)
-                self._populate(self._result_df)
+                self._run_async(
+                    lambda: advise(self._devices_df, self.engine),
+                    self._apply_rescore,
+                )
 
-        self._run_async(lambda: self.engine.retrain(glob), done)
+        self._run_async(lambda: self.engine.retrain(glob), rescore)
         self.status.set("Retraining model…")
+
+    def _apply_rescore(self, report: pd.DataFrame) -> None:
+        self._result_df = report
+        self._sort_asc.clear()
+        self._populate(report)
 
     def _export(self) -> None:
         if self._result_df is None:

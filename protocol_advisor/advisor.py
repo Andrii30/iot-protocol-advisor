@@ -42,7 +42,7 @@ def advise(
     grouped = devices.groupby("device_id", sort=True)
     agg = grouped[FEATURES].median()
     agg["current_protocol"] = grouped["current_protocol"].agg(
-        lambda s: s.mode().iloc[0] if not s.mode().empty else s.iloc[0]
+        lambda s: s.value_counts().index[0]
     )
     agg["n_samples"] = grouped.size()
     agg = agg.reset_index()
