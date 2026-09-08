@@ -17,10 +17,12 @@ Initial release.
   `KEEP_LOW_CONFIDENCE` verdict, plus a rule-based baseline column and
   ML-vs-rule agreement.
 - Data sources: CSV file/directory and PostgreSQL (`SqlSource`, psycopg 3).
-- Tkinter desktop UI: results table, detail popup, retrain, export.
+- Tkinter desktop UI: menu bar, verdict/search filters, results table tinted
+  by verdict, detail popup, retrain, export, training progress bar.
 - Headless mode: `--file` / `--db` / `--query`, `--watch` interval,
   `--out` audit CSV that logs only new or changed switch recommendations.
 - `run.sh` one-command launcher (macOS / Debian).
 - systemd unit and cron examples under `deploy/`.
 - Synthetic dataset generator (`scripts/generate_dataset.py`).
-- 26 tests, CI on Python 3.10 and 3.12.
+- 32 tests (including headless UI smoke tests), CI on Python 3.10 and 3.12
+  under xvfb.
