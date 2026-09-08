@@ -3,6 +3,14 @@
 All notable changes to this project are documented here. Format loosely
 follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.0](https://github.com/Andrii30/iot-protocol-advisor/compare/iot-protocol-advisor-v0.1.0...iot-protocol-advisor-v0.2.0) (2026-09-08)
+
+
+### Features
+
+* --switch-threshold flag for headless mode ([5647730](https://github.com/Andrii30/iot-protocol-advisor/commit/5647730b4bedc5163c1833f16e7091dfc6658df6))
+* --switch-threshold flag for headless mode ([f4df0be](https://github.com/Andrii30/iot-protocol-advisor/commit/f4df0bed9d82694939f927cd2f479dce0207470b))
+
 ## [0.1.0] - 2026-09-08
 
 Initial release.
