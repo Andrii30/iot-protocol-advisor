@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "iot-protocol-advisor"
+version = "0.1.0"
+description = "Recommend the optimal IoT data-transmission protocol per device from network measurements."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "iot-protocol-advisor contributors" }]
+keywords = ["iot", "protocol", "mqtt", "coap", "lorawan", "machine-learning"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["scikit-learn>=1.3,<2", "pandas>=2.0,<3", "joblib>=1.3,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+iot-protocol-advisor = "protocol_advisor.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/iot-protocol-advisor/iot-protocol-advisor"
+
+[tool.setuptools]
+packages = ["protocol_advisor", "protocol_advisor.sources"]
