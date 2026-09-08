@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import glob as _glob
 import os
+import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +21,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.ensemble import (
     GradientBoostingClassifier,
     HistGradientBoostingClassifier,
@@ -50,7 +52,7 @@ def build_matrix(x5: np.ndarray) -> np.ndarray:
 PROTOCOLS: list[str] = ["CoAP", "HTTPS", "LoRaWAN", "MQTT"]
 
 LABEL_COLUMN = "best_protocol"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_TRAINING_GLOB = str(_REPO_ROOT / "examples" / "training_data" / "*.csv")
@@ -75,6 +77,7 @@ class ModelInfo:
     trained_at: str
     training_files: list[str]
     n_rows: int
+    sklearn_version: str = sklearn.__version__
     feature_importances: dict[str, float] | None = None
     low_confidence_eval: bool = False
 
@@ -296,3 +299,12 @@ class Engine:
         self._scaler = blob["scaler"]
         self._encoder = blob["encoder"]
         self._info = blob["info"]
+
+        trained_with = getattr(self._info, "sklearn_version", "unknown")
+        if trained_with != sklearn.__version__:
+            warnings.warn(
+                f"model.pkl was trained with scikit-learn {trained_with}, "
+                f"running {sklearn.__version__}; retrain if predictions look off.",
+                RuntimeWarning,
+                stacklevel=2,
+            )

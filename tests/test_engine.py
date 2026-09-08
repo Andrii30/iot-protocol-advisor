@@ -87,6 +87,22 @@ def test_very_small_training_set_does_not_raise(tmp_path, training_dir):
     assert info.model_name
 
 
+def test_sklearn_version_recorded_and_mismatch_warns(tmp_path, training_dir):
+    import joblib
+    import sklearn
+
+    home = tmp_path / "home"
+    info = Engine(home=home).load_or_train(str(training_dir / "*.csv"))
+    assert info.sklearn_version == sklearn.__version__
+
+    blob = joblib.load(home / "model.pkl")
+    blob["info"].sklearn_version = "0.0.1-fake"
+    joblib.dump(blob, home / "model.pkl")
+
+    with pytest.warns(RuntimeWarning, match="scikit-learn 0.0.1-fake"):
+        Engine(home=home).load_or_train()
+
+
 def test_predict_before_load_raises(tmp_path):
     eng = Engine(home=tmp_path / "home")
     with pytest.raises(RuntimeError):

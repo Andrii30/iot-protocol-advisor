@@ -8,7 +8,9 @@ each device, and gives a plain verdict: **keep the current protocol** or
 Protocols considered: **MQTT, CoAP, HTTPS, LoRaWAN**.
 
 ![screenshot](docs/screenshot.png)
-<!-- add docs/screenshot.png -->
+<!-- capture your own: see docs/README.md -->
+
+
 
 ## How it works
 

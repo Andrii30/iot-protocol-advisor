@@ -106,7 +106,8 @@ class AdvisorApp:
         warn = "  ⚠ low-confidence evaluation (little training data)" if info.low_confidence_eval else ""
         self.status.set(
             f"Model: {info.model_name} · holdout macro-F1: {info.macro_f1:.2f} · "
-            f"accuracy: {info.accuracy:.2f} · trained: {info.trained_at}{warn}"
+            f"accuracy: {info.accuracy:.2f} · trained: {info.trained_at} · "
+            f"sklearn {info.sklearn_version}{warn}"
         )
 
     # -- async plumbing --------------------------------------------------------

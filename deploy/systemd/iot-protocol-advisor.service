@@ -1,0 +1,27 @@
+[Unit]
+Description=IoT Protocol Advisor - autonomous protocol-change watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User and paths to your install.
+User=iot-advisor
+WorkingDirectory=/opt/iot-protocol-advisor
+Environment=PROTOCOL_ADVISOR_HOME=/var/lib/iot-protocol-advisor
+ExecStart=/opt/iot-protocol-advisor/.venv/bin/python -m protocol_advisor \
+    --db "postgresql://advisor:secret@localhost:5432/telemetry" \
+    --query "SELECT device_id, current_protocol, payload_size, latency, jitter, throughput, packet_loss FROM measurements WHERE ts > now() - interval '1 hour'" \
+    --watch 300 \
+    --out /var/lib/iot-protocol-advisor/switches.csv
+Restart=on-failure
+RestartSec=30
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/iot-protocol-advisor
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
