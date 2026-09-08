@@ -19,6 +19,7 @@ import pandas as pd
 from protocol_advisor.advisor import KEEP, KEEP_LOW_CONFIDENCE, SWITCH, advise
 from protocol_advisor.engine import FEATURES, Engine
 from protocol_advisor.sources.csv_source import CsvSource
+from protocol_advisor.sources.sql_source import SqlSource
 
 _COLUMNS = [
     ("device_id", "Device", 140),
@@ -66,6 +67,8 @@ class AdvisorApp:
         bar.pack(fill="x")
         self.btn_open = ttk.Button(bar, text="Open data file…", command=self._open_file)
         self.btn_open.pack(side="left")
+        self.btn_db = ttk.Button(bar, text="Connect to PostgreSQL…", command=self._connect_db)
+        self.btn_db.pack(side="left", padx=(6, 0))
         self.btn_retrain = ttk.Button(bar, text="Retrain model", command=self._retrain)
         self.btn_retrain.pack(side="left", padx=(6, 0))
         self.btn_export = ttk.Button(
@@ -107,6 +110,7 @@ class AdvisorApp:
         self._busy = busy
         state = "disabled" if busy else "normal"
         self.btn_open.config(state=state)
+        self.btn_db.config(state=state)
         self.btn_retrain.config(state=state)
         self.btn_export.config(
             state="disabled" if (busy or self._result_df is None) else "normal"
@@ -150,18 +154,12 @@ class AdvisorApp:
 
     # -- actions --------------------------------------------------------
 
-    def _open_file(self) -> None:
-        path = filedialog.askopenfilename(
-            title="Open device measurements CSV",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-        )
-        if not path:
-            return
+    def _ingest(self, source, origin: str) -> None:
+        """Load a DataSource, score it, and show the result. Runs off the UI thread."""
 
         def work():
-            devices = CsvSource(path).load()
-            report = advise(devices, self.engine)
-            return devices, report
+            devices = source.load()
+            return devices, advise(devices, self.engine)
 
         def done(result):
             self._devices_df, self._result_df = result
@@ -169,11 +167,63 @@ class AdvisorApp:
             self._populate(self._result_df)
             self.btn_export.config(state="normal")
             self.status.set(
-                f"{len(self._result_df)} device(s) from {Path(path).name} · "
+                f"{len(self._result_df)} device(s) from {origin} · "
                 + self._verdict_summary(self._result_df)
             )
 
         self._run_async(work, done)
+
+    def _open_file(self) -> None:
+        path = filedialog.askopenfilename(
+            title="Open device measurements CSV",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if path:
+            self._ingest(CsvSource(path), Path(path).name)
+
+    def _connect_db(self) -> None:
+        dsn, query = self._ask_db_query()
+        if dsn and query:
+            self._ingest(SqlSource(query, dsn=dsn), "PostgreSQL")
+
+    def _ask_db_query(self) -> tuple[str | None, str | None]:
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Connect to PostgreSQL")
+        dlg.transient(self.root)
+        dlg.grab_set()
+        frame = ttk.Frame(dlg, padding=12)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="Connection string (libpq / URL):").pack(anchor="w")
+        dsn_var = tk.StringVar(value="postgresql://user:password@localhost:5432/dbname")
+        ttk.Entry(frame, textvariable=dsn_var, width=64).pack(fill="x", pady=(0, 8))
+
+        ttk.Label(
+            frame,
+            text="SQL query — must return columns:\n"
+            "device_id, current_protocol, payload_size, latency, jitter, "
+            "throughput, packet_loss",
+        ).pack(anchor="w")
+        query_txt = tk.Text(frame, width=64, height=10)
+        query_txt.pack(fill="both", expand=True, pady=(0, 8))
+        query_txt.insert("1.0", "SELECT device_id, current_protocol, payload_size,\n"
+                                "       latency, jitter, throughput, packet_loss\n"
+                                "FROM measurements;")
+
+        result: dict[str, str] = {}
+
+        def ok():
+            result["dsn"] = dsn_var.get().strip()
+            result["query"] = query_txt.get("1.0", "end").strip()
+            dlg.destroy()
+
+        btns = ttk.Frame(frame)
+        btns.pack(fill="x")
+        ttk.Button(btns, text="Load", command=ok).pack(side="right")
+        ttk.Button(btns, text="Cancel", command=dlg.destroy).pack(side="right", padx=(0, 6))
+
+        self.root.wait_window(dlg)
+        return result.get("dsn"), result.get("query")
 
     def _retrain(self) -> None:
         folder = filedialog.askdirectory(title="Folder of training CSV files")

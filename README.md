@@ -28,7 +28,19 @@ Protocols considered: **MQTT, CoAP, HTTPS, LoRaWAN**.
    confidence and the two most influential features. Double-click a row for the
    full per-protocol probability breakdown.
 
-## Install
+## Quick start
+
+macOS or Debian/Ubuntu — one command sets up a virtualenv, installs everything
+and launches the window:
+
+```bash
+./run.sh
+```
+
+If it reports Tkinter is missing, run the printed install line
+(`brew install python-tk` / `sudo apt install python3-tk`) and rerun `./run.sh`.
+
+## Install (manual)
 
 Requires Python 3.10+.
 
@@ -96,12 +108,34 @@ Training CSVs use the columns `payload_size, latency, jitter, throughput,
 packet_loss, best_protocol` (extra columns such as `timestamp`, `scenario` are
 ignored).
 
-## Extending to other data sources
+## PostgreSQL
 
-`protocol_advisor/sources/base.py` defines a one-method `DataSource` interface.
-To pull measurements from a database, a NetFlow export or an SNMP poll instead
-of a CSV, add a module implementing `load() -> pandas.DataFrame` with the
-input columns above. Only `CsvSource` is implemented in this release.
+Click **Connect to PostgreSQL…**, enter a connection string
+(`postgresql://user:pass@host:5432/dbname`) and a query that returns the
+columns listed above. The driver comes from `requirements.txt`; for a
+packaged install use `pip install "iot-protocol-advisor[db]"`.
+
+For large tables, aggregate in SQL so only ~one row per device is returned:
+
+```sql
+SELECT device_id,
+       mode() WITHIN GROUP (ORDER BY current_protocol) AS current_protocol,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY payload_size) AS payload_size,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY latency)      AS latency,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY jitter)       AS jitter,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY throughput)   AS throughput,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY packet_loss)  AS packet_loss
+FROM measurements
+WHERE ts > now() - interval '1 day'
+GROUP BY device_id;
+```
+
+## Other data sources
+
+`protocol_advisor/sources/base.py` defines a one-method `DataSource`
+interface. To pull from a NetFlow export or an SNMP poll, add a module
+implementing `load() -> pandas.DataFrame` with the input columns above.
+`CsvSource` and `SqlSource` ship in this release.
 
 ## Security note
 

@@ -1,4 +1,6 @@
+# Everything needed to run the app, including PostgreSQL support.
 scikit-learn>=1.3,<2
 pandas>=2.0,<3
 numpy>=1.23
 joblib>=1.3,<2
+psycopg[binary]>=3.1
