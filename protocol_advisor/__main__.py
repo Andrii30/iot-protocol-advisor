@@ -7,6 +7,7 @@
     python -m protocol_advisor --db "postgresql://u:p@h/db" --query "SELECT ..." --watch 60
 
 Add --out report.csv to append SWITCH recommendations (with a timestamp) each cycle.
+Add --switch-threshold P to change how confident a switch must be (default 0.55).
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from protocol_advisor.advisor import SWITCH, advise
+from protocol_advisor.advisor import DEFAULT_SWITCH_THRESHOLD, SWITCH, advise
 from protocol_advisor.engine import Engine
 
 
@@ -32,10 +33,11 @@ def _make_source(args):
 
 
 def _run_once(engine: Engine, source, out: Path | None,
-              previous: dict[str, str] | None = None) -> dict[str, str]:
+              previous: dict[str, str] | None = None,
+              switch_threshold: float = DEFAULT_SWITCH_THRESHOLD) -> dict[str, str]:
     """Score the source once. Print/log only switches new or changed since
     `previous` (device_id -> recommended protocol). Return the current mapping."""
-    report = advise(source.load(), engine)
+    report = advise(source.load(), engine, switch_threshold=switch_threshold)
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     switches = report[report["verdict"] == SWITCH]
     current = dict(zip(switches["device_id"], switches["recommended_protocol"]))
@@ -69,9 +71,10 @@ def _headless(args) -> int:
     print(f"Model: {info.model_name} · macro-F1 {info.macro_f1:.2f}")
     source = _make_source(args)
     out = Path(args.out) if args.out else None
+    thr = args.switch_threshold
 
     if not args.watch:
-        _run_once(engine, source, out)
+        _run_once(engine, source, out, switch_threshold=thr)
         return 0
 
     print(f"Watching every {args.watch}s. Ctrl-C to stop.")
@@ -79,7 +82,7 @@ def _headless(args) -> int:
     try:
         while True:
             try:
-                state = _run_once(engine, source, out, previous=state)
+                state = _run_once(engine, source, out, previous=state, switch_threshold=thr)
             except Exception as exc:  # noqa: BLE001 - keep the loop alive
                 print(f"    ! {exc}", file=sys.stderr)
             time.sleep(args.watch)
@@ -96,6 +99,9 @@ def main() -> int:
     ap.add_argument("--watch", type=int, metavar="SECONDS",
                     help="re-score on this interval instead of exiting")
     ap.add_argument("--out", help="append SWITCH recommendations to this CSV")
+    ap.add_argument("--switch-threshold", type=float, default=DEFAULT_SWITCH_THRESHOLD,
+                    metavar="P",
+                    help=f"min confidence to recommend a switch (default {DEFAULT_SWITCH_THRESHOLD})")
     args = ap.parse_args()
 
     if args.db and not args.query:

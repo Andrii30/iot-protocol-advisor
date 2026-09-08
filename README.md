@@ -107,7 +107,8 @@ python -m protocol_advisor --db "postgresql://u:p@host/db" \
 
 Each cycle prints a summary and every `SWITCH` recommendation. `--out` appends
 those rows (with a `checked_at` timestamp) to a CSV, so the tool can run as a
-cron job or a systemd service and leave an audit trail.
+cron job or a systemd service and leave an audit trail. `--switch-threshold P`
+raises or lowers how confident a switch must be (default `0.55`).
 
 ## Training data and model
 
