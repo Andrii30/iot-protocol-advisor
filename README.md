@@ -1,11 +1,15 @@
 # iot-protocol-advisor
 
+[![CI](https://github.com/Andrii30/iot-protocol-advisor/actions/workflows/ci.yml/badge.svg)](https://github.com/Andrii30/iot-protocol-advisor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A small desktop app that reads per-device IoT network measurements, uses a
 machine-learning model to recommend the best data-transmission protocol for
 each device, and gives a plain verdict: **keep the current protocol** or
 **switch to protocol X**.
 
-Protocols considered: **MQTT, CoAP, HTTPS, LoRaWAN**.
+Protocols considered: **MQTT, CoAP, HTTPS, LoRaWAN**. Data comes from a CSV
+file or a PostgreSQL query; it runs as a desktop GUI or as a headless watcher.
 
 ![screenshot](docs/screenshot.png)
 <!-- capture your own: see docs/README.md -->
