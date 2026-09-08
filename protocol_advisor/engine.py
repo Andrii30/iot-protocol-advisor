@@ -1,6 +1,6 @@
 """Model training, selection, persistence and prediction.
 
-Trains four scikit-learn classifiers on IoT network logs, evaluates them on a
+Trains five scikit-learn classifiers on IoT network logs, evaluates them on a
 stratified 25% holdout, and keeps the one with the best macro-F1. The fitted
 model, scaler and label encoder are cached to ``model.pkl``.
 

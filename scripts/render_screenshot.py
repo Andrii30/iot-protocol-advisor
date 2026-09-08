@@ -20,10 +20,11 @@ from protocol_advisor.advisor import advise  # noqa: E402
 from protocol_advisor.sources import CsvSource  # noqa: E402
 
 SCALE = 2
-W, H = 1024, 620
+W, H = 1180, 620
 VERDICT_FG = {"KEEP": "#1b7f2e", "SWITCH": "#e2691a", "KEEP_LOW_CONFIDENCE": "#6b6b6b"}
-COLS = [("Device", 150), ("Current", 95), ("Recommended", 120), ("Confidence", 95),
-        ("Verdict", 175), ("Samples", 75), ("Factor 1", 150), ("Factor 2", 150)]
+COLS = [("Device", 140), ("Current", 82), ("Recommended", 108), ("Confidence", 88),
+        ("Verdict", 158), ("Rule-based", 98), ("ML=rule", 64), ("Samples", 62),
+        ("Top factor", 150), ("2nd factor", 150)]
 
 
 def _font(name, size):
@@ -91,7 +92,9 @@ def main() -> None:
         cx = 12
         vals = [str(row["device_id"]), str(row["current_protocol"]),
                 str(row["recommended_protocol"]), f"{row['confidence']:.2f}",
-                str(row["verdict"]), str(row["n_samples"]),
+                str(row["verdict"]), str(row["rule_based"]),
+                "yes" if row["ml_agrees_rule"] else "no",
+                str(row["n_samples"]),
                 str(row["factor_1"]), str(row["factor_2"])]
         for (name, cw), v in zip(COLS, vals):
             fg = VERDICT_FG.get(row["verdict"], "#222") if name == "Verdict" else "#222"
