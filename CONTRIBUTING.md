@@ -39,6 +39,11 @@ bumps the version in `pyproject.toml` and `protocol_advisor/__init__.py` and
 writes the `CHANGELOG.md` entry. Merging that PR tags the release and publishes
 it. Don't edit the version by hand.
 
+If the tag/GitHub Release doesn't appear right after merging a Release PR
+(GitHub doesn't always re-trigger workflows for a bot-authored branch), run the
+`release-please` workflow once manually from the Actions tab — it finalises the
+pending release.
+
 ## Reporting bugs
 
 Open an issue with the command you ran, what happened, and what you expected.
