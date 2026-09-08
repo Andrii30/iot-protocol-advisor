@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "package-name": "iot-protocol-advisor",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": ["protocol_advisor/__init__.py"]
+    }
+  }
+}
