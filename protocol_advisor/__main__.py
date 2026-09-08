@@ -1,13 +1,98 @@
-"""Entry point: ``python -m protocol_advisor`` (or the ``iot-protocol-advisor`` script)."""
+"""Entry point.
+
+    python -m protocol_advisor                       launch the GUI
+    python -m protocol_advisor --file data.csv        score once, print, exit
+    python -m protocol_advisor --file data.csv --watch 300
+                                                     re-score every 300s (autonomous)
+    python -m protocol_advisor --db "postgresql://u:p@h/db" --query "SELECT ..." --watch 60
+
+Add --out report.csv to append SWITCH recommendations (with a timestamp) each cycle.
+"""
 
 from __future__ import annotations
 
+import argparse
 import sys
+import time
+from datetime import datetime, timezone
+from pathlib import Path
 
+from protocol_advisor.advisor import SWITCH, advise
 from protocol_advisor.engine import Engine
 
 
+def _make_source(args):
+    if args.file:
+        from protocol_advisor.sources.csv_source import CsvSource
+
+        return CsvSource(args.file)
+    from protocol_advisor.sources.sql_source import SqlSource
+
+    return SqlSource(args.query, dsn=args.db)
+
+
+def _run_once(engine: Engine, source, out: Path | None) -> int:
+    report = advise(source.load(), engine)
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    switches = report[report["verdict"] == SWITCH]
+
+    counts = report["verdict"].value_counts().to_dict()
+    print(f"[{stamp}] {len(report)} devices — " +
+          ", ".join(f"{k}:{v}" for k, v in counts.items()))
+    for _, r in switches.iterrows():
+        print(f"    SWITCH {r['device_id']}: {r['current_protocol']} -> "
+              f"{r['recommended_protocol']} ({r['confidence']:.0%})")
+
+    if out is not None:
+        rows = switches.drop(columns=["probabilities"]).copy()
+        rows.insert(0, "checked_at", stamp)
+        header = not out.exists()
+        rows.to_csv(out, mode="a", header=header, index=False)
+    return len(switches)
+
+
+def _headless(args) -> int:
+    engine = Engine()
+    print("Loading / training model…")
+    info = engine.load_or_train()
+    print(f"Model: {info.model_name} · macro-F1 {info.macro_f1:.2f}")
+    source = _make_source(args)
+    out = Path(args.out) if args.out else None
+
+    if not args.watch:
+        _run_once(engine, source, out)
+        return 0
+
+    print(f"Watching every {args.watch}s. Ctrl-C to stop.")
+    try:
+        while True:
+            try:
+                _run_once(engine, source, out)
+            except Exception as exc:  # noqa: BLE001 - keep the loop alive
+                print(f"    ! {exc}", file=sys.stderr)
+            time.sleep(args.watch)
+    except KeyboardInterrupt:
+        print("\nStopped.")
+    return 0
+
+
 def main() -> int:
+    ap = argparse.ArgumentParser(prog="protocol_advisor")
+    ap.add_argument("--file", help="input CSV of device measurements")
+    ap.add_argument("--db", help="PostgreSQL connection string / URL")
+    ap.add_argument("--query", help="SQL query returning the required columns")
+    ap.add_argument("--watch", type=int, metavar="SECONDS",
+                    help="re-score on this interval instead of exiting")
+    ap.add_argument("--out", help="append SWITCH recommendations to this CSV")
+    args = ap.parse_args()
+
+    if args.db and not args.query:
+        ap.error("--db requires --query")
+
+    if args.file or args.db:
+        return _headless(args)
+
+    # No data source given -> GUI.
     try:
         import tkinter  # noqa: F401
     except ImportError:
@@ -15,7 +100,8 @@ def main() -> int:
             "Tkinter is not available for this Python.\n"
             "  Debian/Ubuntu:  sudo apt install python3-tk\n"
             "  macOS (Homebrew): brew install python-tk\n"
-            "  Fedora:         sudo dnf install python3-tkinter",
+            "  Fedora:         sudo dnf install python3-tkinter\n"
+            "Or run headless: python -m protocol_advisor --file <csv>",
             file=sys.stderr,
         )
         return 1

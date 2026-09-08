@@ -76,6 +76,11 @@ class AdvisorApp:
         )
         self.btn_export.pack(side="left", padx=(6, 0))
 
+        self.summary = tk.StringVar(value="Open a data file or connect to PostgreSQL to begin.")
+        ttk.Label(self.root, textvariable=self.summary, font=("", 13), padding=(10, 4)).pack(
+            anchor="w"
+        )
+
         cols = [c[0] for c in _COLUMNS]
         self.tree = ttk.Treeview(self.root, columns=cols, show="headings", selectmode="browse")
         for key, label, width in _COLUMNS:
@@ -166,10 +171,11 @@ class AdvisorApp:
             self._sort_asc.clear()
             self._populate(self._result_df)
             self.btn_export.config(state="normal")
-            self.status.set(
-                f"{len(self._result_df)} device(s) from {origin} · "
+            self.summary.set(
+                f"{len(self._result_df)} devices from {origin}  ·  "
                 + self._verdict_summary(self._result_df)
             )
+            self.status.set(f"Loaded {origin}.")
 
         self._run_async(work, done)
 
@@ -247,6 +253,7 @@ class AdvisorApp:
         self._result_df = report
         self._sort_asc.clear()
         self._populate(report)
+        self.summary.set(f"{len(report)} devices  ·  " + self._verdict_summary(report))
 
     def _export(self) -> None:
         if self._result_df is None:

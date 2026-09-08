@@ -84,29 +84,42 @@ many rows.
 
 Extra columns are ignored. Missing required columns produce a clear error.
 
-## Training data and what the numbers mean
+## Autonomous / headless mode
 
-The bundled model is trained on `examples/training_data/*.csv` — four
-simulated network scenarios (~3000 rows each). On that data the holdout
-macro-F1 is around **0.59**. That is an honest, unremarkable number: with only
-these five features the protocol label is not fully determined, so ~0.6 is
-roughly the ceiling.
+Run without the GUI — score once, or keep watching a source on an interval:
 
-The holdout is a **stratified random split of the pooled rows**. It measures
-how well the model recommends a protocol for conditions similar to the
-training data. It does **not** measure transfer to a completely new network
-regime — holding a whole scenario file out drops macro-F1 to ~0.3, and four
-scenarios is too few to study that properly. Retrain on logs from your own
-network for meaningful recommendations:
+```bash
+python -m protocol_advisor --file devices.csv                 # score once
+python -m protocol_advisor --file devices.csv --watch 300     # every 5 min
+python -m protocol_advisor --db "postgresql://u:p@host/db" \
+    --query "SELECT ... FROM measurements" --watch 60 --out switches.csv
+```
+
+Each cycle prints a summary and every `SWITCH` recommendation. `--out` appends
+those rows (with a `checked_at` timestamp) to a CSV, so the tool can run as a
+cron job or a systemd service and leave an audit trail.
+
+## Training data and model
+
+The bundled model trains on `examples/training_data/*.csv` — a synthetic set
+(50k rows, 5 device archetypes) where the optimal protocol is a transparent
+scoring function of the network features plus ~8% label noise. Regenerate it
+with `python scripts/generate_dataset.py`.
+
+On that data the holdout (stratified 25% split) is about **macro-F1 0.89 /
+accuracy 0.92**, with `HistGradientBoosting` usually winning. The engine also
+derives three features from the raw five (`transfer_time`, `burstiness`,
+`log_payload`).
+
+Retrain on logs from your own network for real recommendations:
 
 ```python
 from protocol_advisor import Engine
 Engine().retrain("path/to/your/logs/*.csv")
 ```
 
-Training CSVs use the columns `payload_size, latency, jitter, throughput,
-packet_loss, best_protocol` (extra columns such as `timestamp`, `scenario` are
-ignored).
+Training CSVs need the columns `payload_size, latency, jitter, throughput,
+packet_loss, best_protocol` (extra columns are ignored).
 
 ## PostgreSQL
 

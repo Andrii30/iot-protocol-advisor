@@ -4,12 +4,9 @@ Trains four scikit-learn classifiers on IoT network logs, evaluates them on a
 stratified 25% holdout, and keeps the one with the best macro-F1. The fitted
 model, scaler and label encoder are cached to ``model.pkl``.
 
-Note on evaluation: the holdout is a stratified random split of the pooled
-rows. This measures how well the model recommends a protocol for a measurement
-drawn from the same operating conditions as the training data. It does *not*
-measure transfer to an entirely unseen network regime -- that is a separate,
-harder question and the bundled dataset is too small (4 scenarios) to answer
-it. See README.
+Evaluation is a stratified 25% random split of the pooled rows. Three features
+are derived from the raw five before training (see ``build_matrix``). See
+README for what the reported numbers mean.
 """
 
 from __future__ import annotations
@@ -23,15 +20,31 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    HistGradientBoostingClassifier,
+    RandomForestClassifier,
+)
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-# Fixed feature order — imported everywhere that builds a feature matrix.
+# Fixed order of the RAW input features (the public data contract).
 FEATURES: list[str] = ["payload_size", "latency", "jitter", "throughput", "packet_loss"]
+
+# Extra columns derived from the raw five before training / prediction.
+DERIVED: list[str] = ["transfer_time", "burstiness", "log_payload"]
+
+
+def build_matrix(x5: np.ndarray) -> np.ndarray:
+    """Expand an (n, 5) array in FEATURES order into raw + derived features."""
+    payload, latency, jitter, throughput, loss = (x5[:, i] for i in range(5))
+    transfer_time = payload / np.clip(throughput, 0.01, None)
+    burstiness = jitter / np.clip(latency, 1.0, None)
+    log_payload = np.log1p(payload)
+    return np.column_stack([x5, transfer_time, burstiness, log_payload])
 
 # The 4 protocols this tool decides between, sorted (LabelEncoder order).
 PROTOCOLS: list[str] = ["CoAP", "HTTPS", "LoRaWAN", "MQTT"]
@@ -73,6 +86,9 @@ def _model_zoo() -> dict[str, object]:
         "RandomForest": RandomForestClassifier(
             n_estimators=300, class_weight="balanced", random_state=42
         ),
+        "HistGradientBoosting": HistGradientBoostingClassifier(
+            max_iter=300, learning_rate=0.08, random_state=42
+        ),
         "NeuralNetwork": MLPClassifier(
             hidden_layer_sizes=(64, 32), max_iter=500, random_state=42
         ),
@@ -89,7 +105,10 @@ def _feature_importances(Xs: np.ndarray, y: np.ndarray) -> dict[str, float]:
     rf.fit(Xs, y)
     vals = np.asarray(rf.feature_importances_, dtype=float)
     total = vals.sum() or 1.0
-    return {name: round(float(v / total), 4) for name, v in zip(FEATURES, vals)}
+    return {
+        name: round(float(v / total), 4)
+        for name, v in zip(FEATURES + DERIVED, vals)
+    }
 
 
 def _load_training_frame(training_glob: str) -> pd.DataFrame:
@@ -153,7 +172,7 @@ class Engine:
     def retrain(self, training_glob: str | None = None) -> ModelInfo:
         data = _load_training_frame(training_glob or _DEFAULT_TRAINING_GLOB)
 
-        X = data[FEATURES].to_numpy(dtype=float)
+        X = build_matrix(data[FEATURES].to_numpy(dtype=float))
         y_str = data[LABEL_COLUMN].to_numpy()
         source_files = sorted(data["source_file"].unique().tolist())
 
@@ -228,7 +247,7 @@ class Engine:
         if missing:
             raise ValueError(f"Feature frame missing columns: {', '.join(missing)}")
 
-        X = features[FEATURES].to_numpy(dtype=float)
+        X = build_matrix(features[FEATURES].to_numpy(dtype=float))
         Xs = self._scaler.transform(X)
         probs = self._model.predict_proba(Xs)
         classes = self._encoder.inverse_transform(self._model.classes_)

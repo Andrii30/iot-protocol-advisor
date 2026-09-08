@@ -50,7 +50,8 @@ def advise(
     predictions = engine.predict(agg[FEATURES])
 
     importances = engine.info.feature_importances or {}
-    top_features = (sorted(importances, key=importances.get, reverse=True)[:2] + [None, None])[:2]
+    raw = {k: v for k, v in importances.items() if k in FEATURES}
+    top_features = (sorted(raw, key=raw.get, reverse=True)[:2] + [None, None])[:2]
 
     rows = []
     for (_, dev), pred in zip(agg.iterrows(), predictions):
