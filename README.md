@@ -12,17 +12,17 @@ Protocols considered: **MQTT, CoAP, HTTPS, LoRaWAN**. Data comes from a CSV
 file or a PostgreSQL query; it runs as a desktop GUI or as a headless watcher.
 
 ![screenshot](docs/screenshot.png)
-<!-- capture your own: see docs/README.md -->
 
 
 
 ## How it works
 
-1. **Engine** (`protocol_advisor/engine.py`) trains four scikit-learn
-   classifiers — Logistic Regression, Gradient Boosting, Random Forest and a
-   small MLP — on labelled network logs, evaluates them on a stratified 25%
-   holdout, and keeps the one with the best macro-F1. The fitted model is
-   cached to `~/.iot-protocol-advisor/model.pkl` and reused on the next run.
+1. **Engine** (`protocol_advisor/engine.py`) trains five scikit-learn
+   classifiers — Logistic Regression, Gradient Boosting, Random Forest,
+   HistGradientBoosting and a small MLP — on labelled network logs (plus three
+   derived features), evaluates them on a stratified 25% holdout, and keeps the
+   one with the best macro-F1. The fitted model is cached to
+   `~/.iot-protocol-advisor/model.pkl` and reused on the next run.
 2. **Advisor** (`protocol_advisor/advisor.py`) groups the input rows by
    `device_id`, takes the median of each network feature per device, asks the
    model for the best protocol, and compares it with the device's current
@@ -30,9 +30,13 @@ file or a PostgreSQL query; it runs as a desktop GUI or as a headless watcher.
    - recommended == current → `KEEP`
    - recommended != current and confidence ≥ 0.55 → `SWITCH`
    - otherwise → `KEEP_LOW_CONFIDENCE`
+
+   It also runs a transparent rule-based baseline
+   (`protocol_advisor/baseline.py`) alongside the model, so every result shows
+   whether hand-written thresholds agree with the ML pick.
 3. **UI** (`protocol_advisor/ui.py`) shows one row per device with the verdict,
    confidence and the two most influential features. Double-click a row for the
-   full per-protocol probability breakdown.
+   full per-protocol probability breakdown and the rule-based comparison.
 
 ## Quick start
 
@@ -167,9 +171,14 @@ directory. Do not point `PROTOCOL_ADVISOR_HOME` at a directory whose
 ## Tests
 
 ```bash
-pip install pytest
-pytest
+pip install -r requirements-dev.txt
+pytest -q
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md). Changes are listed in
+[CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

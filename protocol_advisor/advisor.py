@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from protocol_advisor.baseline import rule_based_recommend
 from protocol_advisor.engine import FEATURES, Engine
 
 REQUIRED_COLUMNS: list[str] = ["device_id", "current_protocol", *FEATURES]
@@ -27,7 +28,8 @@ def advise(
     """One row per device: current vs recommended protocol and a verdict.
 
     Columns returned: device_id, current_protocol, recommended_protocol,
-    confidence, verdict, n_samples, factor_1, factor_2, probabilities.
+    confidence, verdict, n_samples, factor_1, factor_2, rule_based,
+    ml_agrees_rule, probabilities.
     """
     missing = [c for c in REQUIRED_COLUMNS if c not in devices.columns]
     if missing:
@@ -69,6 +71,7 @@ def advise(
         factors = [
             f"{name}={dev[name]:.3g}" if name is not None else "" for name in top_features
         ]
+        rule = rule_based_recommend(dev)
 
         rows.append(
             {
@@ -80,6 +83,8 @@ def advise(
                 "n_samples": int(dev["n_samples"]),
                 "factor_1": factors[0],
                 "factor_2": factors[1],
+                "rule_based": rule,
+                "ml_agrees_rule": bool(rule == recommended),
                 "probabilities": pred.probabilities,
             }
         )

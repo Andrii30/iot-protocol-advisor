@@ -45,8 +45,10 @@ def _run_once(engine: Engine, source, out: Path | None,
 
     counts = report["verdict"].value_counts().to_dict()
     note = f" ({len(changed_ids)} new/changed)" if previous is not None else ""
+    agree = report["ml_agrees_rule"].mean() * 100 if len(report) else 0.0
     print(f"[{stamp}] {len(report)} devices — "
-          + ", ".join(f"{k}:{v}" for k, v in counts.items()) + note)
+          + ", ".join(f"{k}:{v}" for k, v in counts.items())
+          + f" · ML/rule-based agreement {agree:.0f}%" + note)
 
     changed = switches[switches["device_id"].isin(changed_ids)]
     for _, r in changed.iterrows():

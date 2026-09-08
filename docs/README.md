@@ -1,7 +1,11 @@
 # docs/
 
-`screenshot.png` is referenced from the top-level README. To add it:
+`screenshot.png` is referenced from the top-level README. It is rendered from
+real advisor output (the GUI can't run in CI) by:
 
-1. `./run.sh`, load `examples/large_dataset.csv`.
-2. Capture the window — macOS: `Cmd+Shift+4` then `Space` then click the window.
-3. Save as `docs/screenshot.png`, commit.
+```bash
+python scripts/render_screenshot.py
+```
+
+To use an actual window capture instead, replace the file — macOS:
+`Cmd+Shift+4`, `Space`, click the window.

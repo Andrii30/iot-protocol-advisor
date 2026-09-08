@@ -326,6 +326,11 @@ class AdvisorApp:
             frame,
             text=f"Current: {row['current_protocol']}    "
             f"Recommended: {row['recommended_protocol']} ({row['confidence']:.0%})",
+        ).pack(anchor="w")
+        agree = "agrees" if row.get("ml_agrees_rule") else "differs"
+        ttk.Label(
+            frame,
+            text=f"Rule-based baseline: {row.get('rule_based', '—')}  ({agree} with the model)",
         ).pack(anchor="w", pady=(0, 8))
 
         ttk.Label(frame, text="Protocol probabilities", font=("", 10, "bold")).pack(anchor="w")
