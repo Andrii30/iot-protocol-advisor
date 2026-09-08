@@ -31,24 +31,33 @@ def _make_source(args):
     return SqlSource(args.query, dsn=args.db)
 
 
-def _run_once(engine: Engine, source, out: Path | None) -> int:
+def _run_once(engine: Engine, source, out: Path | None,
+              previous: dict[str, str] | None = None) -> dict[str, str]:
+    """Score the source once. Print/log only switches new or changed since
+    `previous` (device_id -> recommended protocol). Return the current mapping."""
     report = advise(source.load(), engine)
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     switches = report[report["verdict"] == SWITCH]
+    current = dict(zip(switches["device_id"], switches["recommended_protocol"]))
+
+    prev = previous or {}
+    changed_ids = [d for d, p in current.items() if prev.get(d) != p]
 
     counts = report["verdict"].value_counts().to_dict()
-    print(f"[{stamp}] {len(report)} devices — " +
-          ", ".join(f"{k}:{v}" for k, v in counts.items()))
-    for _, r in switches.iterrows():
+    note = f" ({len(changed_ids)} new/changed)" if previous is not None else ""
+    print(f"[{stamp}] {len(report)} devices — "
+          + ", ".join(f"{k}:{v}" for k, v in counts.items()) + note)
+
+    changed = switches[switches["device_id"].isin(changed_ids)]
+    for _, r in changed.iterrows():
         print(f"    SWITCH {r['device_id']}: {r['current_protocol']} -> "
               f"{r['recommended_protocol']} ({r['confidence']:.0%})")
 
-    if out is not None:
-        rows = switches.drop(columns=["probabilities"]).copy()
+    if out is not None and not changed.empty:
+        rows = changed.drop(columns=["probabilities"]).copy()
         rows.insert(0, "checked_at", stamp)
-        header = not out.exists()
-        rows.to_csv(out, mode="a", header=header, index=False)
-    return len(switches)
+        rows.to_csv(out, mode="a", header=not out.exists(), index=False)
+    return current
 
 
 def _headless(args) -> int:
@@ -64,10 +73,11 @@ def _headless(args) -> int:
         return 0
 
     print(f"Watching every {args.watch}s. Ctrl-C to stop.")
+    state: dict[str, str] = {}
     try:
         while True:
             try:
-                _run_once(engine, source, out)
+                state = _run_once(engine, source, out, previous=state)
             except Exception as exc:  # noqa: BLE001 - keep the loop alive
                 print(f"    ! {exc}", file=sys.stderr)
             time.sleep(args.watch)

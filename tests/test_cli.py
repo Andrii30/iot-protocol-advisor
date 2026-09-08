@@ -11,17 +11,18 @@ def test_run_once_reports_and_appends_switches(engine, devices_frame, tmp_path, 
     devices_frame.to_csv(csv, index=False)
     out = tmp_path / "verdicts.csv"
 
-    n_switch = _run_once(engine, CsvSource(csv), out)
+    state = _run_once(engine, CsvSource(csv), out)
 
     printed = capsys.readouterr().out
     assert "devices" in printed
-    assert n_switch >= 1
+    assert len(state) >= 1  # at least one device recommended a switch
     assert out.exists()
     written = pd.read_csv(out)
     assert "checked_at" in written.columns
     assert (written["verdict"] == "SWITCH").all()
+    n_first = len(written)
 
-    # A second cycle appends, keeping one header.
-    _run_once(engine, CsvSource(csv), out)
-    assert (pd.read_csv(out)["verdict"] == "SWITCH").all()
-    assert len(pd.read_csv(out)) == 2 * len(written)
+    # Second cycle with the same state -> nothing new, no rows appended.
+    _run_once(engine, CsvSource(csv), out, previous=state)
+    assert len(pd.read_csv(out)) == n_first
+    assert "0 new/changed" in capsys.readouterr().out

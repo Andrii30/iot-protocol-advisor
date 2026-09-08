@@ -19,6 +19,7 @@ tables, pre-aggregate in SQL so only ~one row per device comes back, e.g.::
 
 from __future__ import annotations
 
+import warnings
 from typing import Callable
 
 import pandas as pd
@@ -78,7 +79,11 @@ class SqlSource(DataSource):
                 opened_here = True
 
             try:
-                data = pd.read_sql_query(self.query, conn)
+                with warnings.catch_warnings():
+                    # A raw DB-API connection works fine; pandas only warns
+                    # because it prefers a SQLAlchemy connectable.
+                    warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy")
+                    data = pd.read_sql_query(self.query, conn)
             except Exception as exc:  # noqa: BLE001
                 raise SqlLoadError(f"Query failed: {exc}") from exc
         finally:
